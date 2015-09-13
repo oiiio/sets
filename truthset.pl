@@ -109,3 +109,4 @@ while(<FILE>) {
 
     }
 }
+close FILE;
