@@ -1,7 +1,7 @@
 #!/bin/bash
 # compute stats from TS tags
 
-VCF="truthset.vcf"
+VCF="truthset.dp10.GQ40.dedup.vcf"
 ALLA=`grep -E "_A$" ${VCF} | wc -l`
 ALLB=`grep -E "_B$" ${VCF} | wc -l`
 EGQ=`grep -E "EQUAL_GQ" ${VCF} | wc -l`

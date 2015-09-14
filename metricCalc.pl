@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-
+use List::MoreUtils qw(uniq);
 # Calculate metrics for the experiment tables
 
 #change the below files accordingly, $sample is the name of the sample you are analyzing based on its ID in the #CHROM header line
@@ -14,12 +14,12 @@ my $qualCut = "40"; # GQ quality score filter
 #metric var setup
 my @medianArr;  #use to sort later
 my @median; # push depth of variants here;
-my $medianOut; #for printing
+my $medianOut; #for #printing
 my $gtTotal; # number of total genotypes made in sample (including over duplicate positions *see README)
 my $gtQ; # number of genotypes in sample meeting the $qualCut filter
 my $tp; # number of variant gts matching the truth set
-my $fn; # number of reference gts where truth set had variant
-my $tn; # number of equal reference calls
+my $fn = 0 ; # number of reference gts where truth set had variant
+my $tn =0 ; # number of equal reference calls
 my $hetRef; # number of het variants against truth hom ref
 my $hetHomVar; # number of het variants against truth hom var of same allele
 my $homVarHet; # number of hom variants agaisnt truth het var of same alleles
@@ -54,7 +54,7 @@ my $place = 0;
 open(VCF, $sampleVCF);
 while(<VCF>) {
   if ($_=~/^##/) {
-    print $_;
+    ##print $_;
     next;
   }
   #grab the column sample corresponding to the sample
@@ -76,10 +76,11 @@ while(<VCF>) {
   my @truthArr = split(":",$truth[$place]); #breakdown truthset info
   $place++; # add 1 to the placeholder for truth set position
   my @sampleArr = split(":",$lineArr[$col]); #breakdown sample gt info
-
+  #print $sampleArr[0]."____________________".$truthArr[0]."____";
   #no emit in sample vs gt in truth
   if ($sampleArr[0] =~/\./ && $truthArr[0] !~/\./) {
     $missed++;
+    #print "missed\n";
     next;
   }
 
@@ -93,42 +94,48 @@ while(<VCF>) {
 
   #true negatives
   if ($sampleArr[0] eq $truthArr[0] && $sampleArr[0] eq "0\/0") {
-    tn++;
+    $tn++;
+    #print "tn\n";
     next;
   }
 
   #true positives
   if ($sampleArr[0] eq $truthArr[0] && $sampleArr[0] ne "0\/0") {
-    tp++;
+    $tp++;
+    #print "tp\n";
     next;
   }
 
   #false negatives
   if ($sampleArr[0] eq "0\/0" && $truthArr[0] !~/\./) {
-      fn++;
+      $fn++;
+      #print "fn\n";
       next;
   }
 
   #multiallelic test
-  my $multi = $sampleArr[0]."\/",$truthArr[0];
+  my $multi = $sampleArr[0]."\/".$truthArr[0];
   my @multiTest = split("\/",$multi);
   my @multiSort = sort { $a <=> $b } @multiTest;
   my @multiUniq = uniq @multiSort;
   my $lenUniq = @multiUniq;
   if ($lenUniq > 2) {
     $multiallelic++;
+    #print "multi\n";
     next;
   }
 
   #hetRef
   if ($truthArr[0] eq "0\/0" && $sampleArr[0] =~ /0\//) {
     $hetRef++;
+    #print "hetRef\n";
     next;
   }
 
   #homVarRef
   if ($truthArr[0] eq "0\/0" && $sampleArr[0] !~ /0\//) {
     $homVarRef++;
+    #print "homVarRef\n";
     next;
   }
 
@@ -136,11 +143,12 @@ while(<VCF>) {
   my @homTruth = split("\/",$truthArr[0]);
   my @homTruthTest = uniq @homTruth;
   my $lenHomTruthTest = @homTruthTest;
+  my $homTruthTracker;
   if ($lenHomTruthTest == 1) {
-    my $homTruthTracker = 1; # mark as homozygous truth set
+    $homTruthTracker = 1; # mark as homozygous truth set
   }
   elsif ($lenHomTruthTest > 1) {
-    my $homTruthTracker =0; #mark as not homozygous truth set
+    $homTruthTracker =0; #mark as not homozygous truth set
   }
   my $homSampleTracker;
   my @homSample = split("\/",$sampleArr[0]);
@@ -157,12 +165,14 @@ while(<VCF>) {
   #hetHomVar
   if($homSampleTracker == 0 && $homTruthTracker == 1) {
     $hetHomVar++;
+    #print "hethomevar\n";
     next;
   }
 
   #homVarHet
   if($homSampleTracker == 1 && $homTruthTracker == 0) {
     $homVarHet++;
+    #print "homVarHet\n";
     next;
   }
 }
@@ -180,11 +190,11 @@ if( @medianArr  % 2 == 0){
 #if even then:
   my $sum = $medianArr[(@medianArr/2)-1] + $medianArr[(@medianArr/2)];
   my $med = $sum/2;
-  my $medianOut = $med;
+  $medianOut = $med;
 }
 else{
 #if odd then:
-  my $medianOut =  $medianArr[@medianArr/2];
+  $medianOut =  $medianArr[@medianArr/2];
 }
 
 #fp sum
@@ -198,4 +208,4 @@ $sens = $tp / ($tp + $fn );
 $prec = $tp / ($tp + $fpTotal);
 
 
-print $medianOut."\t".($gtQ/$gtTotal)."\t".$tp."\t".$fn."\t".$fpTotal."\t".$hetRef."\t".$hetHomVar."\t".$homVarHet."\t".$homVarRef."\t".$multiallelic."\t".$sens."\t".$prec."\n"
+print $medianOut."\t".$gtQ."\t".$gtTotal."\t".($gtQ/$gtTotal)."\t".$tn."\t".$tp."\t".$fn."\t".$fpTotal."\t".$hetRef."\t".$hetHomVar."\t".$homVarHet."\t".$homVarRef."\t".$multiallelic."\t".$sens."\t".$prec."\n"
